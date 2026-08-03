@@ -1,12 +1,24 @@
 # caysmnlauncher
 
-An alternative to Meow.Net's launcher for PC.
+<p align="center">
+  <img src="mn-1.png" alt="a logo is here btw">
+</p>
+
+<p align="center">
+  An alternative to <a href="https://discord.gg/recnet">Meow.Net's</a> launcher for PC.
+</p>
+
+> this project is not affiliated with or made by the meow.net developers.
 
 # Usage
 
 Download the latest release from releases, extract the zip and open cayymnlauncher.exe.
 
 It is recommended to move the launcher zip into the final location you want it to be before extracting.
+
+# Licenses
+
+i dont fucking care do what you want with it lmao
 
 
 # Building
