@@ -1,7 +1,7 @@
 # caysmnlauncher
 
 <p align="center">
-  <img src="mn-1.png" alt="a logo is here btw">
+  <img src="mn-1.png" alt="sans is a werid folk">
 </p>
 
 <p align="center">
