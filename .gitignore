@@ -12,7 +12,7 @@ app.build/
 app.dist/
 app.onefile-build/
 cayymnlauncher/
-LICENSE
+
 
 *.zip
 
@@ -25,4 +25,4 @@ venv/
 *.log
 
 *.spec
-mn-1.png
+
