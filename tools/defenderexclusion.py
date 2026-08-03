@@ -88,3 +88,21 @@ def verify_exclusion(target_dir: str) -> bool:
     )
     paths = [p.strip() for p in result.stdout.splitlines() if p.strip()]
     return any(target_dir.lower() == p.lower() for p in paths)
+
+
+
+def remove_defender_exclusion(target_dir: str) -> bool:
+    target_dir = os.path.abspath(target_dir)
+
+    command = f'Remove-MpPreference -ExclusionPath \\"{target_dir}\\"'
+    code = run_elevated(command)
+
+    if code == -1:
+        print("Elevation was declined or failed to launch.")
+        return False
+    if code != 0:
+        print(f"Command finished with exit code {code}.")
+        return False
+
+    print(f"Exclusion removed for: {target_dir}")
+    return True

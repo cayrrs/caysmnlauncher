@@ -8,10 +8,17 @@ from zipfile import ZipFile
 import shutil
 import subprocess
 from pyshortcuts import make_shortcut
+import tkinter as tk
+from tkinter import filedialog
+import json
+
+root = tk.Tk()
+root.withdraw()
 
 # variables
 
 localappdata = os.getenv('LOCALAPPDATA')
+launcherappdata = os.path.join(localappdata, "cayymnlauncher")
 meownetappdata = os.path.join(localappdata, "MeowNet")
 rootenv = os.getenv('SystemDrive')
 root = os.path.join(rootenv, os.sep)
@@ -19,6 +26,9 @@ gamedirectory = os.path.join(root, "Meow.Net") # eventually i'll make this user 
 game_download_link = "https://cdn.cookedasset.com/build/Meow_Beta.zip" 
 launchmode = "vr"
 exepath = os.path.abspath(sys.argv[0])
+updateurl = "https://meowii.app/LastUpdate"
+
+
 # helper functions
 
 def clearconsole():
@@ -65,6 +75,22 @@ def extractzip(zipfile):
     with ZipFile(zipfile, 'r') as zip:
         zip.extractall(root)
 
+def readsettings(string):
+    with open(settingsfile, 'r') as file:
+        data = json.load(file)
+        if string:
+            parseddata = data[string]
+            return parseddata
+        else:
+            return data
+
+def writesettings(key, data):
+    existingdata = readsettings(None)
+    if key in existingdata:
+        existingdata[key] = data 
+        with open(settingsfile, 'w') as file:
+            json.dump(existingdata, file, indent=4)
+
 
 # main stuff
 
@@ -80,8 +106,24 @@ def makeshortcut():
     )
 
 
+def updatecheck():
+    clearconsole()
+    print("checking for meow.net updates..")
+    webupdatevar = requests.get(updateurl).json()
+    updatefile = os.path.join(gamedirectory, "last_update.txt")
+    f = open(updatefile, 'r')
+    localupdate = f.read()
+    if webupdatevar["last_update"] != localupdate:
+        print("a new build of meow.net is available, would you like to update?")
+        updatechoice = input("y/n")
+        if updatechoice in ("", "y", "yes"):
+            print("updating game...")
+            installgame(True)
 
-def installgame():
+
+
+
+def installgame(isupdate):
     clearconsole()
     print("creating temporary folder..")
     os.makedirs(os.path.join(root, "installer_temp"), exist_ok=True)
@@ -94,36 +136,91 @@ def installgame():
         print("extracted successfully!")
         print("cleaning up..")
         shutil.rmtree(os.path.join(root, "installer_temp"), ignore_errors=True)
+        print("fixing last_update.txt")
+        webupdatevar = requests.get(updateurl).json()
+        with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
+                f.write(webupdatevar["last_update"])
         clearconsole()
-        print("it is HIGHLY recommended that you add a defender exclusion for meownet. \n without one, the patch can be deleted by defender and you will have to reinstall to fix it. \n this CAN be reverted! search up how to remove windows defender exclusions")
-        consent = input("\n add exclusion? y/n ").strip().lower()
-        if consent in ("", "y", "yes"):
-            tools.defenderexclusion.add_defender_exclusion(gamedirectory)
+        if isupdate:
+            return True
+        else:
+            print("it is HIGHLY recommended that you add a defender exclusion for meownet. \n without one, the patch can be deleted by defender and you will have to reinstall to fix it. \n this CAN be reverted! search up how to remove windows defender exclusions")
+            consent = input("\n add exclusion? y/n ").strip().lower()
+            if consent in ("", "y", "yes"):
+                tools.defenderexclusion.add_defender_exclusion(gamedirectory)
+
         return True
     else:
         return False
     
-        
+
+
+def movegame():
+    global gamedirectory
+    newfolderpath = filedialog.askdirectory(title="new meow.net directory")
+    if newfolderpath:
+        oldgamedirectory = gamedirectory
+        newgamedirectory = os.path.join(newfolderpath, "Meow.Net")
+        print(f"selected folder: {newfolderpath}")
+        shutil.move(gamedirectory, newfolderpath)
+        print("finished moving files")
+        print("writing new settings data..")
+        gamedirectory = newgamedirectory
+        writesettings("customdirectory", os.path.join(newfolderpath, "Meow.Net"))
+        print("removing old defender exclusion..")
+        tools.defenderexclusion.remove_defender_exclusion(oldgamedirectory)
+        print("it is HIGHLY recommended that you add a defender exclusion for the new location. \n without one, the patch can be deleted by defender and you will have to reinstall to fix it. \n this CAN be reverted! search up how to remove windows defender exclusions")
+        consent = input("\n add exclusion? y/n ").strip().lower()
+        if consent in ("", "y", "yes"):
+            tools.defenderexclusion.add_defender_exclusion(gamedirectory)
+    else:
+        print("no folder selected")
+        return
+
 
 
 
 def init():
+    global settingsfile
+    global gamedirectory
     print("creating required directories..")
     if os.path.isdir(meownetappdata):
         print("meownet app data found")
     else:
         print("meownet app data not found, making")
         os.mkdir(meownetappdata)
+
+    if os.path.isdir(launcherappdata):
+        print("launcher app data found")
+    else:
+        print("launcher app data not found, making")
+        os.mkdir(launcherappdata)
+        print("making config file")
+        settingsfile = os.path.join(launcherappdata, "settings.json")
+        basesettings = {'customdirectory': None}
+        with open(settingsfile, 'x') as file:
+            json.dump(basesettings, file)
+
+    settingsfile = os.path.join(launcherappdata, "settings.json")
+    customdirectory = readsettings("customdirectory")
+    if customdirectory:
+        gamedirectory = customdirectory
+        print(gamedirectory)
+        time.sleep(5)
+    else:
+        print("no custom directory found")
+        time.sleep(5)
     print("checking for pre-existing game install..")
     if os.path.isdir(gamedirectory):
         print("game install found!")
+        updatecheck()
         return
     else:
         print("\n \n game install not found, do you want to install? \n declining this will close the launcher.")
         consent = input("\n y/n? ").strip().lower()
         if consent in ("y", "yes"):
             print("continuing")
-            if installgame():
+            if installgame(False):
                 clearconsole()
                 print("Meow.net installed!")
                 print("Going to menu!")
@@ -165,6 +262,7 @@ def showmenu():
     print("1. Launch Meow.Net")
     print(f"2. Change Launch Mode  current: {launchmode}")
     print(f"3. Make desktop shortcut")
+    print(f"4. Change install location")
     
 
 
@@ -186,6 +284,9 @@ def main():
             makeshortcut()
             print("Made desktop shortcut!")
             time.sleep(1)
+        if choice == "4":
+            clearconsole()
+            movegame()
 
 
 
