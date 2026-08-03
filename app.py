@@ -205,11 +205,8 @@ def init():
     customdirectory = readsettings("customdirectory")
     if customdirectory:
         gamedirectory = customdirectory
-        print(gamedirectory)
-        time.sleep(5)
     else:
         print("no custom directory found")
-        time.sleep(5)
     print("checking for pre-existing game install..")
     if os.path.isdir(gamedirectory):
         print("game install found!")
@@ -258,11 +255,12 @@ def showmenu():
     clearconsole()
     print("cay's meownet launcher")
     print("made by @cayrr.s <3")
-    print("\n\n\n\n\n\n")
+    print("\n\n\n")
     print("1. Launch Meow.Net")
     print(f"2. Change Launch Mode  current: {launchmode}")
-    print(f"3. Make desktop shortcut")
-    print(f"4. Change install location")
+    print("3. Make desktop shortcut")
+    print(f"4. Change install location   current location: {gamedirectory}")
+    print("\n")
     
 
 
