@@ -12,6 +12,7 @@ app.build/
 app.dist/
 app.onefile-build/
 cayymnlauncher/
+LICENSE
 
 *.zip
 
