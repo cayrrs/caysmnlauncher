@@ -22,7 +22,7 @@ launcherappdata = os.path.join(localappdata, "cayymnlauncher")
 meownetappdata = os.path.join(localappdata, "MeowNet")
 rootenv = os.getenv('SystemDrive')
 root = os.path.join(rootenv, os.sep)
-gamedirectory = os.path.join(root, "Meow.Net") # eventually i'll make this user changable, im too lazy rn icl
+gamedirectory = os.path.join(root, "Meow.Net")
 game_download_link = "https://cdn.cookedasset.com/build/Meow_Beta.zip" 
 launchmode = "vr"
 exepath = os.path.abspath(sys.argv[0])
@@ -71,9 +71,9 @@ def download_file(url, dest_path):
     return dest_path
 
 
-def extractzip(zipfile):
+def extractzip(zipfile, destination):
     with ZipFile(zipfile, 'r') as zip:
-        zip.extractall(root)
+        zip.extractall(destination)
 
 def readsettings(string):
     with open(settingsfile, 'r') as file:
@@ -126,16 +126,16 @@ def updatecheck():
 def installgame(isupdate):
     clearconsole()
     print("creating temporary folder..")
-    os.makedirs(os.path.join(root, "installer_temp"), exist_ok=True)
+    os.makedirs(os.path.join(parentdirectory, "installer_temp"), exist_ok=True)
     print("downloading latest version of meow.net...")
-    destpath = download_file(game_download_link, os.path.join(root, "installer_temp", "Meow_Beta.zip"))
+    destpath = download_file(game_download_link, os.path.join(parentdirectory, "installer_temp", "Meow_Beta.zip"))
     print("\n finished downloading meow.net")
     print("\n extracting Meow_Beta.zip... (this may take some time)")
-    extractzip(destpath)
+    extractzip(destpath, parentdirectory)
     if os.path.isdir(gamedirectory):
         print("extracted successfully!")
         print("cleaning up..")
-        shutil.rmtree(os.path.join(root, "installer_temp"), ignore_errors=True)
+        shutil.rmtree(os.path.join(parentdirectory, "installer_temp"), ignore_errors=True)
         print("fixing last_update.txt")
         webupdatevar = requests.get(updateurl).json()
         with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
@@ -157,6 +157,7 @@ def installgame(isupdate):
 
 def movegame():
     global gamedirectory
+    global parentdirectory
     newfolderpath = filedialog.askdirectory(title="new meow.net directory")
     if newfolderpath:
         oldgamedirectory = gamedirectory
@@ -166,6 +167,7 @@ def movegame():
         print("finished moving files")
         print("writing new settings data..")
         gamedirectory = newgamedirectory
+        parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
         writesettings("customdirectory", os.path.join(newfolderpath, "Meow.Net"))
         print("removing old defender exclusion..")
         tools.defenderexclusion.remove_defender_exclusion(oldgamedirectory)
@@ -183,6 +185,7 @@ def movegame():
 def init():
     global settingsfile
     global gamedirectory
+    global parentdirectory
     print("creating required directories..")
     if os.path.isdir(meownetappdata):
         print("meownet app data found")
@@ -207,6 +210,7 @@ def init():
         gamedirectory = customdirectory
     else:
         print("no custom directory found")
+    parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
     print("checking for pre-existing game install..")
     if os.path.isdir(gamedirectory):
         print("game install found!")
@@ -231,8 +235,42 @@ def init():
             sys.exit()
 
 
+def repairgame():
+    global parentdirectory
+
+    print("Uninstalling Meow.Net...")
+    parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
+    shutil.rmtree(gamedirectory, ignore_errors=True)
+    print("Uninstalled Meow.Net")
+    print("Beginning installation")
+    if installgame(True):
+        print("Successfully repaired Meow.Net!")
+        return
+    else:
+        print("Failed to repair Meow.Net!")
+        time.sleep(3)
+        return
+    
+
+def gameintegcheck():
+    if os.path.isdir(os.path.join(gamedirectory, "BepInEx", "plugins")) & os.path.isfile(os.path.join(gamedirectory, "BepInEx", "plugins", "WoofPatch.dll")):
+        return True
+    else:
+        return False
+
+
+
 def launch_game():
     clearconsole()
+    print("checking game integrity")
+    if gameintegcheck():
+        print("passed integ check")
+    else:
+        print("Didn't pass integrity check. Do you want to repair Meow.Net? Not repairing will result in the game being in a broken state.")
+        choice = input("y/n? ")
+        if choice in ["yes", "y", ""]:
+            clearconsole()
+            repairgame()
     print("launching Meow.Net!")
     writelaunchtoken(os.path.join(meownetappdata, "launch.token"))
     exe_path = os.path.join(gamedirectory, "RecRoom.exe")
@@ -260,6 +298,7 @@ def showmenu():
     print(f"2. Change Launch Mode  current: {launchmode}")
     print("3. Make desktop shortcut")
     print(f"4. Change install location   current location: {gamedirectory}")
+    print("5. Repair Meow.Net")
     print("\n")
     
 
@@ -285,6 +324,9 @@ def main():
         if choice == "4":
             clearconsole()
             movegame()
+        if choice == "5":
+            clearconsole()
+            repairgame()
 
 
 
