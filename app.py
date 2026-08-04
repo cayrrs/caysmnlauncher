@@ -1,6 +1,5 @@
 from tools.launchtokengenerator import writelaunchtoken
 import os
-import tools.defenderexclusion
 import requests
 import time
 import sys
@@ -11,11 +10,14 @@ from pyshortcuts import make_shortcut
 import tkinter as tk
 from tkinter import filedialog
 import json
+import tools.autoupdater
 
 root = tk.Tk()
 root.withdraw()
 
 # variables
+
+LAUNCHER_VERSION = "v1.0.3" 
 
 localappdata = os.getenv('LOCALAPPDATA')
 launcherappdata = os.path.join(localappdata, "cayymnlauncher")
@@ -144,10 +146,12 @@ def installgame(isupdate):
         if isupdate:
             return True
         else:
-            print("it is HIGHLY recommended that you add a defender exclusion for meownet. \n without one, the patch can be deleted by defender and you will have to reinstall to fix it. \n this CAN be reverted! search up how to remove windows defender exclusions")
-            consent = input("\n add exclusion? y/n ").strip().lower()
-            if consent in ("", "y", "yes"):
-                tools.defenderexclusion.add_defender_exclusion(gamedirectory)
+            print("it is HIGHLY recommended that you add a Windows Defender exclusion for meow.net yourself.")
+            print(f"folder to exclude: {gamedirectory}")
+            print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection")
+            print("  > Manage settings > Add or remove exclusions > Add an exclusion > Folder")
+            print("without one, defender can delete the patch and you'll need to reinstall to fix it.")
+            print("this can be reverted at any time from the same menu.")
 
         return True
     else:
@@ -169,16 +173,30 @@ def movegame():
         gamedirectory = newgamedirectory
         parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
         writesettings("customdirectory", os.path.join(newfolderpath, "Meow.Net"))
-        print("removing old defender exclusion..")
-        tools.defenderexclusion.remove_defender_exclusion(oldgamedirectory)
-        print("it is HIGHLY recommended that you add a defender exclusion for the new location. \n without one, the patch can be deleted by defender and you will have to reinstall to fix it. \n this CAN be reverted! search up how to remove windows defender exclusions")
-        consent = input("\n add exclusion? y/n ").strip().lower()
-        if consent in ("", "y", "yes"):
-            tools.defenderexclusion.add_defender_exclusion(gamedirectory)
+        print("if you had a Defender exclusion set for the old location, remove it yourself:")
+        print(f"  old folder: {oldgamedirectory}")
+        print("and add a new one for the new location:")
+        print(f"  new folder: {gamedirectory}")
+        print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection")
+        print("  > Manage settings > Add or remove exclusions")
     else:
         print("no folder selected")
         return
 
+def checkforlauncherupdate():
+    print("checking for launcher updates...")
+    available, tag_name, zip_url = tools.autoupdater.check_for_update(LAUNCHER_VERSION)
+    if available:
+        print(f"a new launcher version is available: {tag_name} (current: {LAUNCHER_VERSION})")
+        choice = input("update now? y/n ").strip().lower()
+        if choice in ("", "y", "yes"):
+            if tools.autoupdater.perform_update(zip_url):
+                print("update staged, restarting...")
+                sys.exit()
+            else:
+                print("update failed, continuing with current version")
+    else:
+        print("launcher is up to date")
 
 
 
@@ -186,6 +204,7 @@ def init():
     global settingsfile
     global gamedirectory
     global parentdirectory
+
     print("creating required directories..")
     if os.path.isdir(meownetappdata):
         print("meownet app data found")
