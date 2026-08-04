@@ -60,12 +60,12 @@ def download_update(zip_url):
 
 
 def perform_update(zip_url):
-
     exepath = os.path.abspath(sys.argv[0])
     launcherdir = os.path.dirname(exepath)             
     launcherparentdir = os.path.dirname(launcherdir)   
-    stagingdir = os.path.join(launcherparentdir, "cayymclauncher_new")
+    stagingdir = os.path.join(launcherparentdir, "cayymnlauncher_new")
     exename = os.path.basename(exepath)
+    logfile = os.path.join(tempfile.gettempdir(), "caysmnlauncher_update_log.txt")
 
     print("downloading update...")
     try:
@@ -90,10 +90,30 @@ def perform_update(zip_url):
     batchpath = os.path.join(tempfile.gettempdir(), "caysmnlauncher_update.bat")
     with open(batchpath, "w") as f:
         f.write(f"""@echo off
+set "launcherdir={launcherdir}"
+set "stagingdir={stagingdir}"
+set "exename={exename}"
+set "logfile={logfile}"
+
 timeout /t 2 /nobreak >nul
-rmdir /s /q "{launcherdir}"
-move "{stagingdir}" "{launcherdir}"
-start "" "{os.path.join(launcherdir, exename)}"
+
+set count=0
+:deleteloop
+if not exist "%launcherdir%" goto movestep
+set /a count+=1
+if %count% gtr 30 (
+    echo failed to delete old launcher folder >> "%logfile%"
+    goto end
+)
+rmdir /s /q "%launcherdir%" 2>>"%logfile%"
+timeout /t 1 /nobreak >nul
+goto deleteloop
+
+:movestep
+move "%stagingdir%" "%launcherdir%" >>"%logfile%" 2>&1
+start "" "%launcherdir%\\%exename%"
+
+:end
 del "%~f0"
 """)
 

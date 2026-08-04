@@ -204,7 +204,7 @@ def init():
     global settingsfile
     global gamedirectory
     global parentdirectory
-
+    checkforlauncherupdate()
     print("creating required directories..")
     if os.path.isdir(meownetappdata):
         print("meownet app data found")
