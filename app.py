@@ -11,9 +11,33 @@ import tkinter as tk
 from tkinter import filedialog
 import json
 import tools.autoupdater
+from rich.console import Console, Theme, Group
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
+from rich.text import Text
+from rich.align import Align
+from rich.padding import Padding
+import atexit
+from rich.progress import Progress, BarColumn, TextColumn, DownloadColumn, TransferSpeedColumn
 
+theme = Theme({
+    "title":    "bold pink1",
+    "info":     "grey70",
+    "success":  "bold green",
+    "warning":  "bold yellow",
+    "error":    "bold red",
+    "prompt":   "pink1",
+    "muted":    "grey50",
+    "accent":   "bold pink1",
+    "question": "bold cyan",
+})
+
+console = Console(highlight=False, theme=theme)
 root = tk.Tk()
 root.withdraw()
+
+
+
 
 # variables
 
@@ -43,33 +67,29 @@ def download_file(url, dest_path):
 
     total_size = int(response.headers.get("content-length", 0))
     downloaded = 0
-    chunk_size = 1024 * 256  
+    chunk_size = 1024 * 256
 
-    start_time = time.time()
-    last_update = start_time
+    with Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        TextColumn("{task.percentage:>3.1f}%"),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+    ) as progress:
 
-    with open(dest_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if not chunk:
-                continue
-            f.write(chunk)
-            downloaded += len(chunk)
+        task = progress.add_task("downloading...", total=total_size)
 
-            now = time.time()
-            if now - last_update >= 0.2:  
-                elapsed = now - start_time
-                speed_mbps = (downloaded * 8 / elapsed) / 1_000_000  
-                percent = (downloaded / total_size * 100) if total_size else 0
+        with open(dest_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    continue
 
-                sys.stdout.write(
-                    f"\r{percent:5.1f}%  "
-                    f"{downloaded / (1024*1024):8.2f} MB / {total_size / (1024*1024):.2f} MB  "
-                    f"{speed_mbps:6.2f} Mbps"
-                )
-                sys.stdout.flush()
-                last_update = now
+                f.write(chunk)
+                downloaded += len(chunk)
 
-    print()  
+                progress.update(task, advance=len(chunk))
+
+    console.print()
     return dest_path
 
 
@@ -94,6 +114,13 @@ def writesettings(key, data):
             json.dump(existingdata, file, indent=4)
 
 
+def reset_terminal_bg():
+    sys.stdout.write("\033]11;#000000\033\\") 
+    sys.stdout.flush()
+
+
+
+
 # main stuff
 
 
@@ -110,16 +137,16 @@ def makeshortcut():
 
 def updatecheck():
     clearconsole()
-    print("checking for meow.net updates..")
+    console.print("checking for meow.net updates..", style="info")
     webupdatevar = requests.get(updateurl).json()
     updatefile = os.path.join(gamedirectory, "last_update.txt")
     f = open(updatefile, 'r')
     localupdate = f.read()
     if webupdatevar["last_update"] != localupdate:
-        print("a new build of meow.net is available, would you like to update?")
-        updatechoice = input("y/n")
-        if updatechoice in ("", "y", "yes"):
-            print("updating game...")
+        console.print("a new build of meow.net is available, would you like to update?", style="prompt")
+        should_update = Confirm.ask("[prompt]A new build of meow.net is available. Update now?[/prompt]", console=console)
+        if should_update:
+            console.print("updating game...", style="info")
             installgame(True)
 
 
@@ -127,18 +154,17 @@ def updatecheck():
 
 def installgame(isupdate):
     clearconsole()
-    print("creating temporary folder..")
+    console.print("creating temporary folder..", style="info")
     os.makedirs(os.path.join(parentdirectory, "installer_temp"), exist_ok=True)
-    print("downloading latest version of meow.net...")
     destpath = download_file(game_download_link, os.path.join(parentdirectory, "installer_temp", "Meow_Beta.zip"))
-    print("\n finished downloading meow.net")
-    print("\n extracting Meow_Beta.zip... (this may take some time)")
+    console.print("\n finished downloading meow.net", style="success")
+    console.print("\n extracting Meow_Beta.zip... (this may take some time)", style="info")
     extractzip(destpath, parentdirectory)
     if os.path.isdir(gamedirectory):
-        print("extracted successfully!")
-        print("cleaning up..")
+        console.print("extracted successfully!", style="success")
+        console.print("cleaning up..", style="info")
         shutil.rmtree(os.path.join(parentdirectory, "installer_temp"), ignore_errors=True)
-        print("fixing last_update.txt")
+        console.print("fixing last_update.txt", style="info")
         webupdatevar = requests.get(updateurl).json()
         with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
                 f.write(webupdatevar["last_update"])
@@ -146,12 +172,12 @@ def installgame(isupdate):
         if isupdate:
             return True
         else:
-            print("it is HIGHLY recommended that you add a Windows Defender exclusion for meow.net yourself.")
-            print(f"folder to exclude: {gamedirectory}")
-            print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection")
-            print("  > Manage settings > Add or remove exclusions > Add an exclusion > Folder")
-            print("without one, defender can delete the patch and you'll need to reinstall to fix it.")
-            print("this can be reverted at any time from the same menu.")
+            console.print("it is HIGHLY recommended that you add a Windows Defender exclusion for meow.net yourself.", style="warning")
+            console.print(f"folder to exclude: {gamedirectory}", style="warning")
+            console.print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection", style="warning")
+            console.print("  > Manage settings > Add or remove exclusions > Add an exclusion > Folder", style="warning")
+            console.print("without one, defender can delete the patch and you'll need to reinstall to fix it.", style="warning")
+            console.print("this can be reverted at any time from the same menu.", style="warning")
 
         return True
     else:
@@ -166,37 +192,37 @@ def movegame():
     if newfolderpath:
         oldgamedirectory = gamedirectory
         newgamedirectory = os.path.join(newfolderpath, "Meow.Net")
-        print(f"selected folder: {newfolderpath}")
+        console.print(f"selected folder: {newfolderpath}", style="info")
         shutil.move(gamedirectory, newfolderpath)
-        print("finished moving files")
-        print("writing new settings data..")
+        console.print("finished moving files", style="success")
+        console.print("writing new settings data..", style="info")
         gamedirectory = newgamedirectory
         parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
         writesettings("customdirectory", os.path.join(newfolderpath, "Meow.Net"))
-        print("if you had a Defender exclusion set for the old location, remove it yourself:")
-        print(f"  old folder: {oldgamedirectory}")
-        print("and add a new one for the new location:")
-        print(f"  new folder: {gamedirectory}")
-        print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection")
-        print("  > Manage settings > Add or remove exclusions")
+        console.print("if you had a Defender exclusion set for the old location, remove it yourself:", style="warning")
+        console.print(f"  old folder: {oldgamedirectory}", style="warning")
+        console.print("and add a new one for the new location:", style="warning")
+        console.print(f"  new folder: {gamedirectory}", style="warning")
+        console.print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection", style="warning")
+        console.print("  > Manage settings > Add or remove exclusions", style="warning")
     else:
-        print("no folder selected")
+        console.print("no folder selected", style="error")
         return
 
 def checkforlauncherupdate():
-    print("checking for launcher updates...")
+    console.print("checking for launcher updates...", style="info")
     available, tag_name, zip_url = tools.autoupdater.check_for_update(LAUNCHER_VERSION)
     if available:
-        print(f"a new launcher version is available: {tag_name} (current: {LAUNCHER_VERSION})")
+        console.print(f"a new launcher version is available: {tag_name} (current: {LAUNCHER_VERSION})", style="info")
         choice = input("update now? y/n ").strip().lower()
         if choice in ("", "y", "yes"):
             if tools.autoupdater.perform_update(zip_url):
-                print("update staged, restarting...")
+                console.print("update staged, restarting...", style="success")
                 sys.exit()
             else:
-                print("update failed, continuing with current version")
+                console.print("update failed, continuing with current version", style="error")
     else:
-        print("launcher is up to date")
+        console.print("launcher is up to date", style="success")
 
 
 
@@ -204,20 +230,21 @@ def init():
     global settingsfile
     global gamedirectory
     global parentdirectory
+    sys.stdout.write("\033]11;rgb:18/18/18\033\\")
     checkforlauncherupdate()
-    print("creating required directories..")
+    console.print("creating required directories..", style="muted")
     if os.path.isdir(meownetappdata):
-        print("meownet app data found")
+        console.print("meownet app data found", style="success")
     else:
-        print("meownet app data not found, making")
+        console.print("meownet app data not found, making", style="info")
         os.mkdir(meownetappdata)
 
     if os.path.isdir(launcherappdata):
-        print("launcher app data found")
+        console.print("launcher app data found", style="success")
     else:
-        print("launcher app data not found, making")
+        console.print("launcher app data not found, making", style="info")
         os.mkdir(launcherappdata)
-        print("making config file")
+        console.print("making config file", style="info")
         settingsfile = os.path.join(launcherappdata, "settings.json")
         basesettings = {'customdirectory': None}
         with open(settingsfile, 'x') as file:
@@ -228,27 +255,27 @@ def init():
     if customdirectory:
         gamedirectory = customdirectory
     else:
-        print("no custom directory found")
+        console.print("no custom directory found", style="muted")
     parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
-    print("checking for pre-existing game install..")
+    console.print("checking for pre-existing game install..", style="info")
     if os.path.isdir(gamedirectory):
-        print("game install found!")
+        console.print("game install found!", style="success")
         updatecheck()
         return
     else:
-        print("\n \n game install not found, do you want to install? \n declining this will close the launcher.")
+        console.print("\n \n game install not found, do you want to install? \n declining this will close the launcher.", style="question")
         consent = input("\n y/n? ").strip().lower()
         if consent in ("y", "yes"):
-            print("continuing")
+            console.print("continuing", style="info")
             if installgame(False):
                 clearconsole()
-                print("Meow.net installed!")
-                print("Going to menu!")
+                console.print("Meow.net installed!", style="success")
+                console.print("Going to menu!", style="info")
                 time.sleep(1)
                 return
             else:
                 clearconsole()
-                print("install game failed, restart the launcher")
+                console.print("install game failed, restart the launcher", style="error")
 
         else:
             sys.exit()
@@ -256,17 +283,16 @@ def init():
 
 def repairgame():
     global parentdirectory
-
-    print("Uninstalling Meow.Net...")
+    console.print("Uninstalling Meow.Net...", style="info")
     parentdirectory = os.path.dirname(os.path.normpath(gamedirectory))
     shutil.rmtree(gamedirectory, ignore_errors=True)
-    print("Uninstalled Meow.Net")
-    print("Beginning installation")
+    console.print("Uninstalled Meow.Net", style="success")
+    console.print("Beginning installation", style="info")
     if installgame(True):
-        print("Successfully repaired Meow.Net!")
+        console.print("Successfully repaired Meow.Net!", style="success")
         return
     else:
-        print("Failed to repair Meow.Net!")
+        console.print("Failed to repair Meow.Net!", style="error")
         time.sleep(3)
         return
     
@@ -281,16 +307,16 @@ def gameintegcheck():
 
 def launch_game():
     clearconsole()
-    print("checking game integrity")
+    console.print("checking game integrity", style="info")
     if gameintegcheck():
-        print("passed integ check")
+        console.print("passed integ check", style="success")
     else:
-        print("Didn't pass integrity check. Do you want to repair Meow.Net? Not repairing will result in the game being in a broken state.")
+        console.print("Didn't pass integrity check. Do you want to repair Meow.Net? Not repairing will result in the game being in a broken state.", style="question")
         choice = input("y/n? ")
         if choice in ["yes", "y", ""]:
             clearconsole()
             repairgame()
-    print("launching Meow.Net!")
+    console.print("launching Meow.Net!", style="accent")
     writelaunchtoken(os.path.join(meownetappdata, "launch.token"))
     exe_path = os.path.join(gamedirectory, "RecRoom.exe")
     args = [f"+forcemode:{launchmode}", "-noeac"]
@@ -310,16 +336,33 @@ def launch_game():
 
 def showmenu():
     clearconsole()
-    print("cay's meownet launcher")
-    print("made by @cayrr.s <3")
-    print("\n\n\n")
-    print("1. Launch Meow.Net")
-    print(f"2. Change Launch Mode  current: {launchmode}")
-    print("3. Make desktop shortcut")
-    print(f"4. Change install location   current location: {gamedirectory}")
-    print("5. Repair Meow.Net")
-    print("\n")
-    
+
+    title = Group(
+        Panel.fit(
+            "[title]cay's meownet launcher[/]",
+            border_style="title"
+        ),
+        "[accent]    made by @cayrr.s <3[/]",
+    )
+
+    options = Group(
+        " ",
+        "\n[accent]1. Launch Meow.Net[/]",
+        f"\n[accent]2. Change Launch Mode current: [question]{launchmode}[/][/]",
+        "\n[accent]3. Make desktop shortcut[/]",
+        f"\n[accent]4. Change install location current: [question]{gamedirectory}[/][/]",
+        "\n[accent]5. Repair Meow.Net[/]",
+    )
+
+    options = Padding(
+        options,
+        (0, 0, 0, 15)
+    )
+
+    console.print(Align.center(title))
+    console.print(Align.center(options))
+
+
 
 
 def main():
@@ -327,7 +370,11 @@ def main():
 
     while True:
         showmenu()
-        choice = input("Enter a choice: ")
+        width = shutil.get_terminal_size().columns
+        text = "Enter a choice: "
+        print("\n")
+        console.print(" " * ((width - len(text)) // 2), end="")
+        choice = console.input("[prompt]Enter a choice:[/]")
         if choice == "1":
             launch_game()
         if choice == "2":
@@ -338,7 +385,7 @@ def main():
         if choice == "3":
             clearconsole()
             makeshortcut()
-            print("Made desktop shortcut!")
+            console.print("Made desktop shortcut!", style="success")
             time.sleep(1)
         if choice == "4":
             clearconsole()
@@ -350,6 +397,6 @@ def main():
 
 
 
-
+atexit.register(reset_terminal_bg)
 init()
 main()

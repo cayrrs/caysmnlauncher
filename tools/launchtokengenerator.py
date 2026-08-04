@@ -46,4 +46,3 @@ def writelaunchtoken(tokenfile):
     os.makedirs(os.path.dirname(tokenfile), exist_ok=True)
     with open(tokenfile, "w", encoding="utf-8") as f:
         f.write(token)
-    print(f"Launch token written to: {tokenfile}")
