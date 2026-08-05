@@ -43,7 +43,7 @@ jobs:
 
       - name: build launcher
         run: |
-          build.bat
+          .\build.bat
 
       - name: verify zip exists
         shell: pwsh
