@@ -10,6 +10,10 @@
 
 > this project is not affiliated with or made by the meow.net developers.
 
+# Why make this?
+
+After Repeating (Meow.Net's Launcher/PC Build developer) released a launcher build that deleted people's entire desktops, and random files on their pc, I didn't want to trust the launcher since Repeating seemed untrustworthy.
+
 # Usage
 
 Download the latest release from releases, extract the zip and open cayymnlauncher.exe.
