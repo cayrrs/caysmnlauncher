@@ -41,7 +41,7 @@ root.withdraw()
 
 # variables
 
-LAUNCHER_VERSION = "v1.0.3" 
+LAUNCHER_VERSION = "v1.1" 
 
 localappdata = os.getenv('LOCALAPPDATA')
 launcherappdata = os.path.join(localappdata, "cayymnlauncher")
