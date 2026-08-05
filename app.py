@@ -53,7 +53,8 @@ game_download_link = "https://cdn.cookedasset.com/build/Meow_Beta.zip"
 launchmode = "vr"
 exepath = os.path.abspath(sys.argv[0])
 updateurl = "https://meowii.app/LastUpdate"
-
+acwatchdogdownloadlink = "https://cdn.cookedasset.com/ACservices/SyncHost.exe"
+acwatchdogpath = os.path.join(meownetappdata, "SyncHost.exe") # fucking why why does this exist 
 
 # helper functions
 
@@ -156,6 +157,10 @@ def installgame(isupdate):
     clearconsole()
     console.print("creating temporary folder..", style="info")
     os.makedirs(os.path.join(parentdirectory, "installer_temp"), exist_ok=True)
+    console.print("downloading anti-cheat watchdog", style = "info")
+    acdestpath = os.path.join(meownetappdata, "SyncHost.exe")
+    download_file(acwatchdogdownloadlink, acdestpath)
+    console.print("beginning meow.net download", style="info")
     destpath = download_file(game_download_link, os.path.join(parentdirectory, "installer_temp", "Meow_Beta.zip"))
     console.print("\n finished downloading meow.net", style="success")
     console.print("\n extracting Meow_Beta.zip... (this may take some time)", style="info")
@@ -230,6 +235,8 @@ def init():
     global settingsfile
     global gamedirectory
     global parentdirectory
+    global acwatchdogpath
+
     sys.stdout.write("\033]11;rgb:18/18/18\033\\")
     checkforlauncherupdate()
     console.print("creating required directories..", style="muted")
@@ -260,6 +267,21 @@ def init():
     console.print("checking for pre-existing game install..", style="info")
     if os.path.isdir(gamedirectory):
         console.print("game install found!", style="success")
+        console.print("checking if ac watchdog exists", style="info")
+        if os.path.isfile(acwatchdogpath):
+            console.print("found ac watchdog", style="success")
+        else:
+            console.print("failed to find ac watchdog", style="error")
+            console.print("\n \n do you want to repair the game? \n not repairing will result in a non functional game.", style="question")
+            consent = input("\n y/n? ").strip().lower()
+            if consent in ("y", "yes"):
+                console.print("continuing", style="info")
+                if installgame(False):
+                    clearconsole()
+                    console.print("Meow.net installed!", style="success")
+                    console.print("Going to menu!", style="info")
+                    time.sleep(1)
+                    return
         updatecheck()
         return
     else:
@@ -306,6 +328,7 @@ def gameintegcheck():
 
 
 def launch_game():
+    global watchdogpath
     clearconsole()
     console.print("checking game integrity", style="info")
     if gameintegcheck():
@@ -328,6 +351,11 @@ def launch_game():
             | subprocess.CREATE_NEW_PROCESS_GROUP
             | subprocess.CREATE_BREAKAWAY_FROM_JOB
         )
+    )
+    watchdogprocess = subprocess.Popen(
+        [acwatchdogpath],
+        cwd=os.path.dirname(acwatchdogpath),
+        creationflags=subprocess.CREATE_NO_WINDOW
     )
     input("Press enter to close launcher..")
     sys.exit()
