@@ -127,7 +127,7 @@ def reset_terminal_bg():
 def makeshortcut():
     make_shortcut(
         script=exepath,
-        name= "Meow.Net",
+        name= "MeowNet",
         icon=exepath,
         desktop=True,
         startmenu=True,
