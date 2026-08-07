@@ -20,6 +20,14 @@ Download the latest release from releases, extract the zip and open cayymnlaunch
 
 It is recommended to move the launcher zip into the final location you want it to be before extracting.
 
+# To-Do
+
+Proper Flet gui
+
+Background changing ( after flet )
+
+All settings/options from original launcher
+
 # Licenses
 
 i dont fucking care do what you want with it lmao
