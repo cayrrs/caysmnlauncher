@@ -37,12 +37,25 @@ def get_latest_release():
     return tag_name, zip_url
 
 
+def parse_version(v):
+    v = v.strip().lstrip("vV")
+    parts = v.split(".")
+    result = []
+    for p in parts:
+        digits = "".join(c for c in p if c.isdigit())
+        result.append(int(digits) if digits else 0)
+    return tuple(result)
+
+
 def check_for_update(local_version):
     tag_name, zip_url = get_latest_release()
     if tag_name is None:
         return False, None, None
 
-    return (tag_name != local_version), tag_name, zip_url
+    remote = parse_version(tag_name)
+    local = parse_version(local_version)
+
+    return (remote > local), tag_name, zip_url
 
 
 def download_update(zip_url):

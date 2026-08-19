@@ -13,8 +13,11 @@ app.dist/
 app.onefile-build/
 cayymnlauncher/
 
+importantapis.txt
+test.py
 
 *.zip
+*.exe
 
 .venv/
 venv/
@@ -25,4 +28,3 @@ venv/
 *.log
 
 *.spec
-

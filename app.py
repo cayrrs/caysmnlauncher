@@ -6,7 +6,6 @@ import sys
 from zipfile import ZipFile
 import shutil
 import subprocess
-from pyshortcuts import make_shortcut
 import tkinter as tk
 from tkinter import filedialog
 import json
@@ -19,6 +18,8 @@ from rich.align import Align
 from rich.padding import Padding
 import atexit
 from rich.progress import Progress, BarColumn, TextColumn, DownloadColumn, TransferSpeedColumn
+from tools.blockingprocesses import IsBlockingProcess
+
 
 theme = Theme({
     "title":    "bold pink1",
@@ -37,17 +38,27 @@ root = tk.Tk()
 root.withdraw()
 
 
-
+def get_launcher_version():
+    version_path = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "version.txt")
+    try:
+        with open(version_path, "r") as f:
+            return f.read().strip()
+    except Exception:
+        return "unknown"
 
 # variables
 
-LAUNCHER_VERSION = "v1.1.1" 
 
-localappdata = os.getenv('LOCALAPPDATA')
+LAUNCHER_VERSION = "v" + get_launcher_version()
+
+localappdata = os.getenv("LOCALAPPDATA")
 launcherappdata = os.path.join(localappdata, "cayymnlauncher")
+localappdata = os.getenv("LOCALAPPDATA")
+
 meownetappdata = os.path.join(localappdata, "MeowNet")
 rootenv = os.getenv('SystemDrive')
 root = os.path.join(rootenv, os.sep)
+
 gamedirectory = os.path.join(root, "Meow.Net")
 game_download_link = "https://cdn.cookedasset.com/build/Meow_Beta.zip" 
 launchmode = "vr"
@@ -55,11 +66,17 @@ exepath = os.path.abspath(sys.argv[0])
 updateurl = "https://meowii.app/LastUpdate"
 acwatchdogdownloadlink = "https://cdn.cookedasset.com/ACservices/SyncHost.exe"
 acwatchdogpath = os.path.join(meownetappdata, "SyncHost.exe") # fucking why why does this exist 
+playercounturl = "https://meownetserversideac.tech/api/online" # why on the ac link wtf
 
 # helper functions
 
+
+
 def clearconsole():
     os.system("cls")
+
+
+
 
 
 def download_file(url, dest_path):
@@ -119,21 +136,32 @@ def reset_terminal_bg():
     sys.stdout.write("\033]11;#000000\033\\") 
     sys.stdout.flush()
 
-
+def getplayercount():
+    global playercounturl
+    try:
+        r = requests.get(playercounturl).json()
+        return r["online"]
+        
+    except Exception as e:
+        console.print(f"failed to get player count: {e}", style="error")
 
 
 # main stuff
 
+  # now useless because of the setup
+# def makeshortcut(): 
+#     from pyshortcuts import make_shortcut
+#     shortcut_target = exepath
+#     icon_path = exepath
 
-def makeshortcut():
-    make_shortcut(
-        script=exepath,
-        name= "MeowNet",
-        icon=exepath,
-        desktop=True,
-        startmenu=True,
-        terminal=True
-    )
+#     make_shortcut(
+#         script=shortcut_target,
+#         name="MeowNet",
+#         icon=icon_path,
+#         desktop=True,
+#         startmenu=True,
+#         terminal=True
+#     )
 
 
 def updatecheck():
@@ -144,8 +172,7 @@ def updatecheck():
     f = open(updatefile, 'r')
     localupdate = f.read()
     if webupdatevar["last_update"] != localupdate:
-        console.print("a new build of meow.net is available, would you like to update?", style="prompt")
-        should_update = Confirm.ask("[prompt]A new build of meow.net is available. Update now?[/prompt]", console=console)
+        should_update = Confirm.ask("[prompt]A new build of meow.net is available. Update now?[/prompt]", console=console, case_sensitive=False)
         if should_update:
             console.print("updating game...", style="info")
             installgame(True)
@@ -236,7 +263,8 @@ def init():
     global gamedirectory
     global parentdirectory
     global acwatchdogpath
-
+    global playercount
+    playercount = getplayercount()
     sys.stdout.write("\033]11;rgb:18/18/18\033\\")
     checkforlauncherupdate()
     console.print("creating required directories..", style="muted")
@@ -244,13 +272,13 @@ def init():
         console.print("meownet app data found", style="success")
     else:
         console.print("meownet app data not found, making", style="info")
-        os.mkdir(meownetappdata)
+        os.makedirs(meownetappdata)
 
     if os.path.isdir(launcherappdata):
         console.print("launcher app data found", style="success")
     else:
         console.print("launcher app data not found, making", style="info")
-        os.mkdir(launcherappdata)
+        os.makedirs(launcherappdata)
         console.print("making config file", style="info")
         settingsfile = os.path.join(launcherappdata, "settings.json")
         basesettings = {'customdirectory': None}
@@ -327,8 +355,10 @@ def gameintegcheck():
 
 
 
+
+
 def launch_game():
-    global watchdogpath
+    global acwatchdogpath
     clearconsole()
     console.print("checking game integrity", style="info")
     if gameintegcheck():
@@ -339,10 +369,21 @@ def launch_game():
         if choice in ["yes", "y", ""]:
             clearconsole()
             repairgame()
+
+    console.print("checking for blocking processes", style="info")
+    blocked, name = IsBlockingProcess()
+    if not blocked:
+        shouldbypass = Confirm.ask(f"[prompt]A blocking process was detected: {name}, do you want to continue? (continuing will result in the game crashing!) [/prompt]", console=console, case_sensitive=False)
+        if not shouldbypass:
+            console.print("ok! returning to menu!")
+            clearconsole()
+            main()
+
     console.print("launching Meow.Net!", style="accent")
     writelaunchtoken(os.path.join(meownetappdata, "launch.token"))
     exe_path = os.path.join(gamedirectory, "RecRoom.exe")
     args = [f"+forcemode:{launchmode}", "-noeac"]
+
     subprocess.Popen(
         [exe_path] + args,
         cwd=gamedirectory,
@@ -367,29 +408,30 @@ def showmenu():
 
     title = Group(
         Panel.fit(
-            "[title]cay's meownet launcher[/]",
+            f"[title]cay's meownet launcher[/]\n[accent]players online: [question]{playercount}",
             border_style="title"
         ),
         "[accent]    made by @cayrr.s <3[/]",
     )
 
+    panelwidth = 50
+
     options = Group(
         " ",
-        "\n[accent]1. Launch Meow.Net[/]",
-        f"\n[accent]2. Change Launch Mode current: [question]{launchmode}[/][/]",
-        "\n[accent]3. Make desktop shortcut[/]",
-        f"\n[accent]4. Change install location current: [question]{gamedirectory}[/][/]",
-        "\n[accent]5. Repair Meow.Net[/]",
+        Panel(Align.center("[accent]1. Launch Meow.Net[/]"), border_style="accent", width=panelwidth),
+        Panel(Align.center(Text.from_markup(f"[accent]2. Change Launch Mode \n[accent]current: [question]{launchmode}[/]", justify="center"), vertical="middle"), border_style="accent", width=panelwidth),
+        # Panel(Align.center("[accent]3. Make desktop shortcut[/]"), border_style="accent", width=panelwidth),
+        Panel(Align.center(Text.from_markup(f"[accent]3. Change install location \n[accent]current: [question]{gamedirectory}[/]", justify="center"), vertical="middle"), border_style="accent", width=panelwidth),
+        Panel(Align.center("[accent]4. Repair Meow.Net[/]"), border_style="accent", width=panelwidth),
     )
 
     options = Padding(
         options,
-        (0, 0, 0, 15)
+        (0, 0, 0, 0)
     )
 
     console.print(Align.center(title))
     console.print(Align.center(options))
-
 
 
 
@@ -410,15 +452,15 @@ def main():
                 launchmode = "screen"
             else:
                 launchmode = "vr"
+        # if choice == "3":
+        #     clearconsole()
+        #     makeshortcut()
+        #     console.print("Made desktop shortcut!", style="success")
+        #     time.sleep(1)
         if choice == "3":
             clearconsole()
-            makeshortcut()
-            console.print("Made desktop shortcut!", style="success")
-            time.sleep(1)
-        if choice == "4":
-            clearconsole()
             movegame()
-        if choice == "5":
+        if choice == "4":
             clearconsole()
             repairgame()
 
