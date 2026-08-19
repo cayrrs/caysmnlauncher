@@ -19,7 +19,10 @@ from rich.padding import Padding
 import atexit
 from rich.progress import Progress, BarColumn, TextColumn, DownloadColumn, TransferSpeedColumn
 from tools.blockingprocesses import IsBlockingProcess
-
+from textual.app import App, ComposeResult
+from textual.containers import Vertical, Container
+from textual.widgets import Button, Static
+from textual.screen import Screen
 
 theme = Theme({
     "title":    "bold pink1",
@@ -32,6 +35,19 @@ theme = Theme({
     "accent":   "bold pink1",
     "question": "bold cyan",
 })
+
+rich_theme = Theme({
+    "title":    "bold pink1",
+    "info":     "grey70",
+    "success":  "bold green",
+    "warning":  "bold yellow",
+    "error":    "bold red",
+    "prompt":   "pink1",
+    "muted":    "grey50",
+    "accent":   "bold pink1",
+    "question": "bold cyan",
+})
+
 
 console = Console(highlight=False, theme=theme)
 root = tk.Tk()
@@ -406,67 +422,115 @@ def launch_game():
 
 
 
-def showmenu():
-    clearconsole()
+class MenuScreen(Screen):
+    CSS = """
+    Screen {
+        background: #181818;
+    }
 
-    title = Group(
-        Panel.fit(
-            f"[title]cay's meownet launcher[/]\n[accent]players online: [question]{playercount}",
-            border_style="title"
-        ),
-        "[accent]    made by @cayrr.s <3[/]",
-    )
+    #container {
+        width: 100%;
+        height: auto;
+        align: center middle;
+    }
 
-    panelwidth = 50
+    #title {
+        width: 100%;
+        content-align: center middle;
+        color: #ff86b0;
+        text-style: bold;
+        margin-bottom: 1;
+    }
 
-    options = Group(
-        " ",
-        Panel(Align.center("[accent]1. Launch Meow.Net[/]"), border_style="accent", width=panelwidth),
-        Panel(Align.center(Text.from_markup(f"[accent]2. Change Launch Mode \n[accent]current: [question]{launchmode}[/]", justify="center"), vertical="middle"), border_style="accent", width=panelwidth),
-        # Panel(Align.center("[accent]3. Make desktop shortcut[/]"), border_style="accent", width=panelwidth),
-        Panel(Align.center(Text.from_markup(f"[accent]3. Change install location \n[accent]current: [question]{gamedirectory}[/]", justify="center"), vertical="middle"), border_style="accent", width=panelwidth),
-        Panel(Align.center("[accent]4. Repair Meow.Net[/]"), border_style="accent", width=panelwidth),
-    )
+    #subtitle {
+        width: 100%;
+        content-align: center middle;
+        color: #ff86b0;
+        margin-bottom: 2;
+    }
 
-    options = Padding(
-        options,
-        (0, 0, 0, 0)
-    )
+    #menu {
+        width: 100%;
+        height: auto;
+        align-horizontal: center;
+    }
 
-    console.print(Align.center(title))
-    console.print(Align.center(options))
+    Button {
+        width: 50;
+        margin-bottom: 1;
+        color: #ff86b0;
+        border: round #ff86b0;
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        
+        title = Group(
+            Panel.fit(
+                f"[title]cay's meownet launcher[/]\n"
+                f"[accent]players online: [question]{playercount}",
+                border_style="title",
+            ),
+            Text("    made by @cayrr.s <3", style="accent"),
+        )
 
 
+        yield Static(title, id="title")
+
+        with Vertical(id="menu"):
+            yield Button("1. Launch Meow.Net", id="launch")
+            yield Button(
+                f"2. Change Launch Mode (current: {launchmode})",
+                id="mode"
+            )
+            yield Button(
+                f"3. Change install location (current: {gamedirectory})",
+                id="movedir"
+            )
+            yield Button("4. Repair Meow.Net", id="repair")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        global launchmode
+
+        if event.button.id == "launch":
+            self.app.exit(result="launch")
+
+        elif event.button.id == "mode":
+            launchmode = "screen" if launchmode == "vr" else "vr"
+            self.query_one("#mode", Button).label = (
+                f"2. Change Launch Mode (current: {launchmode})"
+            )
+
+        elif event.button.id == "movedir":
+            self.app.exit(result="movedir")
+
+        elif event.button.id == "repair":
+            self.app.exit(result="repair")
+
+
+class LauncherMenuApp(App):
+    def __init__(self):
+        super().__init__()
+        self.console.push_theme(rich_theme)
+
+    def on_mount(self) -> None:
+        self.push_screen(MenuScreen())
 
 def main():
-    global launchmode
-
     while True:
-        showmenu()
-        width = shutil.get_terminal_size().columns
-        text = "Enter a choice: "
-        print("\n")
-        console.print(" " * ((width - len(text)) // 2), end="")
-        choice = console.input("[prompt]Enter a choice:[/] ")
-        if choice == "1":
+        app = LauncherMenuApp()
+        choice = app.run()
+
+        if choice == "launch":
             launch_game()
-        if choice == "2":
-            if launchmode == "vr":
-                launchmode = "screen"
-            else:
-                launchmode = "vr"
-        # if choice == "3":
-        #     clearconsole()
-        #     makeshortcut()
-        #     console.print("Made desktop shortcut!", style="success")
-        #     time.sleep(1)
-        if choice == "3":
+        elif choice == "movedir":
             clearconsole()
             movegame()
-        if choice == "4":
+        elif choice == "repair":
             clearconsole()
             repairgame()
-
+        elif choice is None:
+            break
 
 
 
