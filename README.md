@@ -22,6 +22,14 @@ It is recommended to move the launcher zip into the final location you want it t
 
 # To-Do
 
+Proper Flet gui
+
+Background changing ( after flet )
+
+All settings/options from original launcher
+
+# To-Do
+
 Add settings from the original launcher
 
 # Licenses
