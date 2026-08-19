@@ -190,8 +190,8 @@ def installgame(isupdate):
     console.print("beginning meow.net download", style="info")
     destpath = download_file(game_download_link, os.path.join(parentdirectory, "installer_temp", "Meow_Beta.zip"))
     console.print("\n finished downloading meow.net", style="success")
-    console.print("\n extracting Meow_Beta.zip... (this may take some time)", style="info")
-    extractzip(destpath, parentdirectory)
+    with console.status("[info]extracting Meow_Beta.zip", spinner="dots", spinner_style="accent"):
+        extractzip(destpath, parentdirectory)
     if os.path.isdir(gamedirectory):
         console.print("extracted successfully!", style="success")
         console.print("cleaning up..", style="info")
@@ -207,9 +207,11 @@ def installgame(isupdate):
             console.print("it is HIGHLY recommended that you add a Windows Defender exclusion for meow.net yourself.", style="warning")
             console.print(f"folder to exclude: {gamedirectory}", style="warning")
             console.print("Windows Settings > Privacy & Security > Windows Security > Virus & threat protection", style="warning")
-            console.print("  > Manage settings > Add or remove exclusions > Add an exclusion > Folder", style="warning")
+            console.print("> Manage settings > Add or remove exclusions > Add an exclusion > Folder", style="warning")
             console.print("without one, defender can delete the patch and you'll need to reinstall to fix it.", style="warning")
             console.print("this can be reverted at any time from the same menu.", style="warning")
+            console.print("\nPress enter to continue ", style="accent")
+            input()
 
         return True
     else:
@@ -313,8 +315,9 @@ def init():
         updatecheck()
         return
     else:
-        console.print("\n \n game install not found, do you want to install? \n declining this will close the launcher.", style="question")
-        consent = input("\n y/n? ").strip().lower()
+        clearconsole()
+        console.print("game install not found, do you want to install? \ndeclining this will close the launcher.", style="question")
+        consent = input("\ny/n? ").strip().lower()
         if consent in ("y", "yes"):
             console.print("continuing", style="info")
             if installgame(False):
@@ -444,7 +447,7 @@ def main():
         text = "Enter a choice: "
         print("\n")
         console.print(" " * ((width - len(text)) // 2), end="")
-        choice = console.input("[prompt]Enter a choice:[/]")
+        choice = console.input("[prompt]Enter a choice:[/] ")
         if choice == "1":
             launch_game()
         if choice == "2":
