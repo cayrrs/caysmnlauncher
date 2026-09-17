@@ -80,9 +80,10 @@ game_download_link = "https://cdn.cookedasset.com/build/Meow_Beta.zip"
 launchmode = "vr"
 exepath = os.path.abspath(sys.argv[0])
 updateurl = "https://meowii.app/LastUpdate"
-acwatchdogdownloadlink = "https://cdn.cookedasset.com/ACservices/SyncHost.exe"
-acwatchdogpath = os.path.join(meownetappdata, "SyncHost.exe") # fucking why why does this exist 
-playercounturl = "https://meownetserversideac.tech/api/online" # why on the ac link wtf
+acwatchdogdownloadlink = "https://cdn.meowii.app/ACservices/bundle.zip"
+acwatchdogpath = os.path.join(meownetappdata, "SyncHost.exe") 
+playercounturl = "https://meowii-ac.duckdns.org/api/online" 
+acupdateurl = "https://new.ninelivesac.net/api/ac-bundle-version"
 
 # helper functions
 
@@ -164,7 +165,7 @@ def getplayercount():
 
 # main stuff
 
-  # now useless because of the setup
+  # now useless because of the setup, if you  (yes you!) dont want setup then uncomment
 # def makeshortcut(): 
 #     from pyshortcuts import make_shortcut
 #     shortcut_target = exepath
@@ -182,27 +183,56 @@ def getplayercount():
 
 def updatecheck():
     clearconsole()
+    console.print("checking for anti-cheat updates..", style="info")
+    acupdate = requests.get(acupdateurl)
+    if acupdate.status_code != 200:
+            console.print(f"Failed to get ac version number: expected 200, got: {webupdate.status_code}")
+            console.print("The update file will be invalid. Expect when the update server comes back online for you to have to update. (thanks repeating)")
+            console.print("Press enter to continue on..")
+            input()
+    else:
+        acupdatevar = acupdate.json()
+        acupdatefile = os.path.join(meownetappdata, "ac_update.txt")
+        f = open(acupdatefile, 'r')
+        aclocalupdate = f.read()
+        if acupdatevar["version"] != aclocalupdate:
+            should_update = Confirm.ask("[prompt]A new build of the anti-cheat is available. Update now? (not updating will result in crashes.)[/prompt]")
+            if should_update:
+                console.print("updating anti-cheat...", style="info")
+                updateanticheat(acupdatevar["version"])
     console.print("checking for meow.net updates..", style="info")
-    webupdatevar = requests.get(updateurl).json()
-    updatefile = os.path.join(gamedirectory, "last_update.txt")
-    f = open(updatefile, 'r')
-    localupdate = f.read()
-    if webupdatevar["last_update"] != localupdate:
-        should_update = Confirm.ask("[prompt]A new build of meow.net is available. Update now?[/prompt]", console=console, case_sensitive=False)
-        if should_update:
-            console.print("updating game...", style="info")
-            installgame(True)
+    webupdate = requests.get(updateurl)
+    if webupdate.status_code != 200:
+        console.print(f"Failed to check for updates: Expected 200 got {webupdate.status_code}!\nIf the game complains about an outdated build, please repair.\nPress enter to proceeed.")
+        input()
+        return
+    else:
+        webupdatevar = webupdate.json()
+        updatefile = os.path.join(gamedirectory, "last_update.txt")
+        f = open(updatefile, 'r')
+        localupdate = f.read()
+        if webupdatevar["last_update"] != localupdate:
+            should_update = Confirm.ask("[prompt]A new build of meow.net is available. Update now?[/prompt]", console=console, case_sensitive=False)
+            if should_update:
+                console.print("updating game...", style="info")
+                installgame(True)
 
 
 
 
 def installgame(isupdate):
     clearconsole()
+    if os.path.exists(os.path.join(meownetappdata, "SyncHost.exe")):
+        console.print("sending synchost to hell", style="info")
+        os.remove(os.path.join(meownetappdata, "SyncHost.exe"))
     console.print("creating temporary folder..", style="info")
     os.makedirs(os.path.join(parentdirectory, "installer_temp"), exist_ok=True)
     console.print("downloading anti-cheat watchdog", style = "info")
-    acdestpath = os.path.join(meownetappdata, "SyncHost.exe")
+    acdestpath = os.path.join(meownetappdata, "bundle.zip")
     download_file(acwatchdogdownloadlink, acdestpath)
+    extractzip(acdestpath, meownetappdata)
+    os.remove(os.path.join(meownetappdata, "bundle.zip"))
+    shutil.move(os.path.join(meownetappdata, "bundle", "SyncHost.exe"), meownetappdata) # this is horrid
     console.print("beginning meow.net download", style="info")
     destpath = download_file(game_download_link, os.path.join(parentdirectory, "installer_temp", "Meow_Beta.zip"))
     console.print("\n finished downloading meow.net", style="success")
@@ -213,9 +243,31 @@ def installgame(isupdate):
         console.print("cleaning up..", style="info")
         shutil.rmtree(os.path.join(parentdirectory, "installer_temp"), ignore_errors=True)
         console.print("fixing last_update.txt", style="info")
-        webupdatevar = requests.get(updateurl).json()
-        with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
-                f.write(webupdatevar["last_update"])
+        webupdate = requests.get(updateurl)
+        if webupdate.status_code != 200:
+            with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
+                f.write("fail")
+            console.print(f"Failed to get build version number: expected 200, got: {webupdate.status_code}")
+            console.print("The update file will be invalid. Expect when the update server comes back online for you to have to update. (thanks repeating)")
+            console.print("Press enter to continue on..")
+            input()
+        else:
+            webupdatevar = webupdate.json()
+            with open(os.path.join(gamedirectory, "last_update.txt"), "w", encoding="utf-8") as f:
+                    f.write(webupdatevar["last_update"])
+        shutil.rmtree(os.path.join(meownetappdata, "bundle"))
+        acupdate = requests.get(acupdateurl)
+        if acupdate.status_code != 200:
+            with open(os.path.join(meownetappdata, "ac_update.txt"), "w", encoding="utf-8") as f:
+                f.write("fail")
+            console.print(f"Failed to get ac version number: expected 200, got: {webupdate.status_code}")
+            console.print("The update file will be invalid. Expect when the update server comes back online for you to have to update. (thanks repeating)")
+            console.print("Press enter to continue on..")
+            input()
+        else:
+            acupdatevar = acupdate.json()
+            with open(os.path.join(meownetappdata, "ac_update.txt"), 'w', encoding="utf-8") as f:
+                f.write(acupdatevar["version"])
         clearconsole()
         if isupdate:
             return True
@@ -233,6 +285,18 @@ def installgame(isupdate):
     else:
         return False
     
+def updateanticheat(newversionnumber):
+    acdestpath = os.path.join(meownetappdata, "bundle.zip")
+    download_file(acwatchdogdownloadlink, acdestpath)
+    extractzip(os.path.join(acdestpath), meownetappdata)
+    os.replace(os.path.join(meownetappdata, "bundle", "WoofPatch.dll"), os.path.join(gamedirectory, "Bepinex", "Plugins", "WoofPatch.dll"))
+    os.replace(os.path.join(meownetappdata, "bundle", "NineLives.dll"), os.path.join(gamedirectory, "NineLives.dll"))
+    os.replace(os.path.join(meownetappdata, "bundle", "SyncHost.exe"), os.path.join(meownetappdata, "SyncHost.exe"))
+    # im too lazy to write a check rn icl
+    os.remove(os.path.join(meownetappdata, "bundle.zip"))
+    shutil.rmtree(os.path.join(meownetappdata, "bundle"))
+    with open(os.path.join(meownetappdata, "ac_update.txt"), 'w', encoding="utf-8") as f:
+        f.write(newversionnumber)
 
 
 def movegame():

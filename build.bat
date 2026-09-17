@@ -4,7 +4,7 @@ setlocal
 set /p VERSION=<version.txt
 echo building the launcher... version %VERSION%
 
-python -m nuitka --standalone --windows-console-mode=force --include-package=tools --output-filename=cayymnlauncher.exe --windows-icon-from-ico=mn.ico --company-name="cayy" --product-name="cay's mn launcher" --file-version=%VERSION% --product-version=%VERSION% --file-description="cay's mn launcher" --include-data-files=version.txt=version.txt --enable-plugin=tk-inter --assume-yes-for-downloads app.py
+python -m nuitka --standalone --windows-console-mode=force --include-package=tools --output-filename=cayymnlauncher.exe --windows-icon-from-ico=mn.ico --company-name="cayy" --product-name="cay's mn launcher" --file-version=%VERSION% --product-version=%VERSION% --file-description="cay's mn launcher" --include-data-files=version.txt=version.txt --enable-plugin=tk-inter --assume-yes-for-downloads app.py --jobs=16
 
 if %errorlevel% neq 0 (
     echo build failed!
