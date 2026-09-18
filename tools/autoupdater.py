@@ -1,21 +1,20 @@
 # tools/autoupdater.py
-
 import os
 import sys
 import tempfile
 import subprocess
 import requests
-
+import httpx
 
 API_URL = f"https://api.github.com/repos/cayrrs/caysmnlauncher/releases/latest"
 
 
-def get_latest_release():
+async def get_latest_release(client: httpx.AsyncClient):
     try:
-        response = requests.get(API_URL, timeout=10)
+        response = await client.get(API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         print(f"failed to check for updates: {e}")
         return None, None
 
@@ -45,8 +44,8 @@ def parse_version(v):
     return tuple(result)
 
 
-def check_for_update(local_version):
-    tag_name, installer_url = get_latest_release()
+async def check_for_update(client: httpx.AsyncClient, local_version):
+    tag_name, installer_url = await get_latest_release(client)
     if tag_name is None:
         return False, None, None
 

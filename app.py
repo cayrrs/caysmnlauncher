@@ -23,6 +23,8 @@ from textual.app import App, ComposeResult
 from textual.containers import Vertical, Container
 from textual.widgets import Button, Static
 from textual.screen import Screen
+import httpx
+import asyncio
 
 theme = Theme({
     "title":    "bold pink1",
@@ -153,14 +155,19 @@ def reset_terminal_bg():
     sys.stdout.write("\033]11;#000000\033\\") 
     sys.stdout.flush()
 
-def getplayercount():
+async def getplayercount():
     global playercounturl
-    try:
-        r = requests.get(playercounturl).json()
-        return r["online"]
-        
-    except Exception as e:
-        console.print(f"failed to get player count: {e}", style="error")
+    async with httpx.AsyncClient() as client:
+        try:
+            r = await client.get(playercounturl)
+            online = r.json()["online"]
+            if online == None:
+                return "?"
+            return online
+        except Exception as e:
+            console.print(f"Failed to get player count: {e}", style="error")
+            return "?"
+            
 
 
 # main stuff
@@ -181,10 +188,14 @@ def getplayercount():
 #     )
 
 
-def updatecheck():
+async def updatecheck():
     clearconsole()
     console.print("checking for anti-cheat updates..", style="info")
-    acupdate = requests.get(acupdateurl)
+    async with httpx.AsyncClient() as client:
+        acupdate, webupdate = await asyncio.gather(
+            client.get(acupdateurl),
+            client.get(updateurl),
+        )
     if acupdate.status_code != 200:
             console.print(f"Failed to get ac version number: expected 200, got: {webupdate.status_code}")
             console.print("The update file will be invalid. Expect when the update server comes back online for you to have to update. (thanks repeating)")
@@ -201,13 +212,12 @@ def updatecheck():
                 console.print("updating anti-cheat...", style="info")
                 updateanticheat(acupdatevar["version"])
     console.print("checking for meow.net updates..", style="info")
-    webupdate = requests.get(updateurl)
     if webupdate.status_code != 200:
         console.print(f"Failed to check for updates: Expected 200 got {webupdate.status_code}!\nIf the game complains about an outdated build, please repair.\nPress enter to proceeed.")
         input()
         return
     else:
-        webupdatevar = webupdate.json()
+        webupdatevar = webupdate.json() 
         updatefile = os.path.join(gamedirectory, "last_update.txt")
         f = open(updatefile, 'r')
         localupdate = f.read()
@@ -322,10 +332,11 @@ def movegame():
     else:
         console.print("no folder selected", style="error")
         return
-
-def checkforlauncherupdate():
+    
+async def checkforlauncherupdate():
     console.print("checking for launcher updates...", style="info")
-    available, tag_name, zip_url = tools.autoupdater.check_for_update(LAUNCHER_VERSION)
+    async with httpx.AsyncClient() as client:
+        available, tag_name, zip_url = await tools.autoupdater.check_for_update(client, LAUNCHER_VERSION)
     if available:
         console.print(f"a new launcher version is available: {tag_name} (current: {LAUNCHER_VERSION})", style="info")
         choice = input("update now? y/n ").strip().lower()
@@ -340,15 +351,15 @@ def checkforlauncherupdate():
 
 
 
-def init():
+async def init():
     global settingsfile
     global gamedirectory
     global parentdirectory
     global acwatchdogpath
     global playercount
-    playercount = getplayercount()
+    playercount_task = asyncio.create_task(getplayercount())
     sys.stdout.write("\033]11;rgb:18/18/18\033\\")
-    checkforlauncherupdate()
+    await checkforlauncherupdate()
     console.print("creating required directories..", style="muted")
     if os.path.isdir(meownetappdata):
         console.print("meownet app data found", style="success")
@@ -388,11 +399,10 @@ def init():
                 console.print("continuing", style="info")
                 if installgame(False):
                     clearconsole()
-                    console.print("Meow.net installed!", style="success")
-                    console.print("Going to menu!", style="info")
-                    time.sleep(1)
+                    playercount = await playercount_task
                     return
-        updatecheck()
+        await updatecheck()
+        playercount = await playercount_task
         return
     else:
         clearconsole()
@@ -402,9 +412,6 @@ def init():
             console.print("continuing", style="info")
             if installgame(False):
                 clearconsole()
-                console.print("Meow.net installed!", style="success")
-                console.print("Going to menu!", style="info")
-                time.sleep(1)
                 return
             else:
                 clearconsole()
@@ -412,6 +419,8 @@ def init():
 
         else:
             sys.exit()
+
+    playercount = await playercount_task
 
 
 def repairgame():
@@ -431,7 +440,7 @@ def repairgame():
     
 
 def gameintegcheck():
-    if os.path.isdir(os.path.join(gamedirectory, "BepInEx", "plugins")) & os.path.isfile(os.path.join(gamedirectory, "BepInEx", "plugins", "WoofPatch.dll")):
+    if os.path.isdir(os.path.join(gamedirectory, "BepInEx", "plugins")) & os.path.isfile(os.path.join(gamedirectory, "BepInEx", "plugins", "WoofPatch.dll")) & os.path.isfile(os.path.join(gamedirectory, "NineLives.dll")):
         return True
     else:
         return False
@@ -599,5 +608,5 @@ def main():
 
 
 atexit.register(reset_terminal_bg)
-init()
+asyncio.run(init())
 main()
